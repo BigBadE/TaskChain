@@ -45,6 +45,7 @@ import co.aikar.taskchain.TaskChainTasks.LastTask;
 import co.aikar.taskchain.TaskChainTasks.Task;
 import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.SneakyThrows;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -133,8 +134,9 @@ public class TaskChain<T> {
      * Call to abort execution of the chain. Should be called inside of an executing task.
      */
     @SuppressWarnings("WeakerAccess")
+    @SneakyThrows
     public static void abort() {
-        TaskChainUtil.sneakyThrows(new AbortChainException());
+        throw new AbortChainException();
     }
 
     /**
@@ -1003,14 +1005,14 @@ public class TaskChain<T> {
      * @param task The task to execute
      */
     @SuppressWarnings("WeakerAccess")
-    public TaskChain<?> sync(GenericTask task) {
+    public TaskChain<T> sync(GenericTask task) {
         return add0(new TaskHolder<>(this, false, task));
     }
 
     /**
-     *
+     * Returns a split task chain that can run multiple tasks simultaniously.
      */
-    public SplitTaskChain split() {
+    public SplitTaskChain<T> split() {
         return new SplitTaskChain(this, factory);
     }
 
@@ -1179,7 +1181,7 @@ public class TaskChain<T> {
             }
             this.executed = true;
         }
-        async = !impl.isMainThread();
+        async = impl.isAsync();
         nextTask();
     }
 
@@ -1281,7 +1283,7 @@ public class TaskChain<T> {
     private <R> CompletableFuture<List<R>> getFuture(List<CompletableFuture<R>> futures) {
         CompletableFuture<List<R>> onDone = new CompletableFuture<>();
         CompletableFuture<?>[] futureArray = new CompletableFuture<?>[futures.size()];
-        CompletableFuture.allOf((CompletableFuture<?>[]) futures.toArray(futureArray)).whenComplete((aVoid, throwable) -> {
+        CompletableFuture.allOf(futures.toArray(futureArray)).whenComplete((aVoid, throwable) -> {
             if (throwable != null) {
                 onDone.completeExceptionally(throwable);
             } else {
@@ -1406,7 +1408,7 @@ public class TaskChain<T> {
                 this.executed = true;
             }
 
-            this.chain.async = !TaskChain.this.impl.isMainThread(); // We don't know where the task called this from.
+            this.chain.async = impl.isAsync(); // We don't know where the task called this from.
             this.chain.previous = resp;
             this.chain.nextTask();
         }

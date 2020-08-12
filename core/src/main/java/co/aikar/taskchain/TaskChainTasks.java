@@ -31,17 +31,10 @@ public class TaskChainTasks {
     /**
      * Generic task with synchronous return (but may execute on any thread)
      *
-     * @param <R>
-     * @param <A>
+     * @param <R> Output
+     * @param <A> Input
      */
     public interface Task<R, A> {
-        /**
-         * @see TaskChain#getCurrentChain()
-         */
-        default TaskChain<?> getCurrentChain() {
-            return TaskChain.getCurrentChain();
-        }
-
         R run(A input);
     }
 

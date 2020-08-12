@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017 Daniel Ennis (Aikar) - MIT License
+ * Copyright (c) 2016-2020 Daniel Ennis (Aikar) - MIT License
  *
  *  Permission is hereby granted, free of charge, to any person obtaining
  *  a copy of this software and associated documentation files (the
@@ -23,24 +23,8 @@
 
 package co.aikar.taskchain;
 
-import java.util.logging.Logger;
-
-final class TaskChainUtil {
-    private TaskChainUtil() { }
-
-    /**
-     * Util method for example logging
-     * @param log String to log
-     */
-    static void log(String log) {
-        for (String s : log.split("\n")) {
-            Logger.getGlobal().info(s);
-        }
-    }
-
-    public static void logError(String log) {
-        for (String s : log.split("\n")) {
-            Logger.getGlobal().severe(s);
-        }
+public class TaskChainException extends RuntimeException {
+    public TaskChainException(String error) {
+        super(error);
     }
 }

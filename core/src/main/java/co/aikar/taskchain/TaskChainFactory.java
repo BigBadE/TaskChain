@@ -23,6 +23,9 @@
 
 package co.aikar.taskchain;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Queue;
@@ -31,25 +34,20 @@ import java.util.function.BiConsumer;
 
 @SuppressWarnings({"WeakerAccess", "unused"})
 public class TaskChainFactory {
-    private final GameInterface impl;
+    @Getter
+    private final GameInterface implementation;
+    @Getter
+    private final Map<String, Queue<SharedTaskChain<?>>> sharedChains = new HashMap<>();
+
     private final AsyncQueue asyncQueue;
-    private final Map<String, Queue<SharedTaskChain>> sharedChains = new HashMap<>();
-    volatile private BiConsumer<Exception, TaskChainTasks.Task<?, ?>> defaultErrorHandler;
     volatile boolean shutdown = false;
+    private BiConsumer<Exception, TaskChainTasks.Task<?, ?>> defaultErrorHandler;
 
     @SuppressWarnings("WeakerAccess")
     public TaskChainFactory(GameInterface impl) {
-        this.impl = impl;
+        this.implementation = impl;
         this.asyncQueue = impl.getAsyncQueue();
         impl.registerShutdownHandler(this);
-    }
-
-    GameInterface getImplementation() {
-        return impl;
-    }
-
-    public Map<String, Queue<SharedTaskChain>> getSharedChains() {
-        return sharedChains;
     }
 
     /**
@@ -57,6 +55,18 @@ public class TaskChainFactory {
      */
     public <T> TaskChain<T> newChain() {
         return new TaskChain<>(this);
+    }
+
+    public BiConsumer<Exception, TaskChainTasks.Task<?, ?>> getDefaultErrorHandler() {
+        synchronized (TaskChainFactory.class) {
+            return defaultErrorHandler;
+        }
+    }
+
+    public void setDefaultErrorHandler(BiConsumer<Exception, TaskChainTasks.Task<?, ?>> errorHandler) {
+        synchronized (TaskChainFactory.class) {
+            this.defaultErrorHandler = errorHandler;
+        }
     }
 
     /**
@@ -73,26 +83,7 @@ public class TaskChainFactory {
      * @param name Name of the shared chain. Case sensitive
      */
     public synchronized <T> TaskChain<T> newSharedChain(String name) {
-        //noinspection unchecked
         return new SharedTaskChain<>(name, this);
-    }
-
-    /**
-     * Returns the default error handler that will be used by all chains created by this factory,
-     * if they do not suspply their own error handler.
-     * @return The current default error handler
-     */
-    public BiConsumer<Exception, TaskChainTasks.Task<?, ?>> getDefaultErrorHandler() {
-        return defaultErrorHandler;
-    }
-
-    /**
-     * Sets the default error handler used for all chains created by this factory,
-     * if they do not supply their own error handler.
-     * @param errorHandler The error handler
-     */
-    public void setDefaultErrorHandler(BiConsumer<Exception, TaskChainTasks.Task<?, ?>> errorHandler) {
-        this.defaultErrorHandler = errorHandler;
     }
 
     /**

@@ -34,8 +34,8 @@ import java.util.function.Consumer;
 
 class SharedTaskChain<R> extends TaskChain<R> {
     private final String name;
-    private final Map<String, Queue<SharedTaskChain>> sharedChains;
-    private Queue<SharedTaskChain> queue;
+    private final Map<String, Queue<SharedTaskChain<?>>> sharedChains;
+    private final Queue<SharedTaskChain<?>> queue;
     private volatile boolean isPending;
     private volatile boolean canExecute = true;
 
@@ -45,19 +45,15 @@ class SharedTaskChain<R> extends TaskChain<R> {
         this.name = name;
 
         synchronized (this.sharedChains) {
-            this.queue = sharedChains.get(this.name);
-            if (this.queue == null) {
-                this.queue = new ConcurrentLinkedQueue<>();
-                this.sharedChains.put(this.name, this.queue);
-            }
-            this.queue.add(this);
+            queue = sharedChains.computeIfAbsent(this.name, key -> new ConcurrentLinkedQueue<>());
+            queue.add(this);
         }
     }
 
     @Override
     public void execute(Consumer<Boolean> done, BiConsumer<Exception, Task<?, ?>> errorHandler) {
         this.setErrorHandler(errorHandler);
-        this.setDoneCallback((finished) -> {
+        this.setDoneCallback(finished -> {
             this.setDoneCallback(done);
             this.done(finished);
             processQueue();
@@ -65,10 +61,10 @@ class SharedTaskChain<R> extends TaskChain<R> {
 
         boolean shouldExecute;
         synchronized (this.sharedChains) {
-            this.isPending = this.queue.peek() != this;
-            shouldExecute = !this.isPending && this.canExecute;
+            isPending = queue.peek() != this;
+            shouldExecute = !isPending && canExecute;
             if (shouldExecute) {
-                this.canExecute = false;
+                canExecute = false;
             }
         }
         if (shouldExecute) {
@@ -80,19 +76,19 @@ class SharedTaskChain<R> extends TaskChain<R> {
      * Launches the next TaskChain in the queue if it is ready, or cleans up the queue if nothing left to do.
      */
     private void processQueue() {
-        this.queue.poll(); // Remove self
-        final SharedTaskChain next;
+        queue.poll(); // Remove self
+        final SharedTaskChain<?> next;
         synchronized (this.sharedChains) {
-            next = this.queue.peek();
+            next = queue.peek();
             if (next == null) {
-                this.sharedChains.remove(this.name);
+                sharedChains.remove(name);
                 return;
             }
             if (!next.isPending) {
                 // Created but wasn't executed yet. Wait until the chain executes itself.
                 return;
             }
-            this.canExecute = false;
+            canExecute = false;
         }
 
         next.execute0();

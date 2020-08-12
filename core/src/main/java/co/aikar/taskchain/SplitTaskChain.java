@@ -23,10 +23,14 @@
 
 package co.aikar.taskchain;
 
+import org.jetbrains.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class SplitTaskChain<T> extends TaskChain<T> {
     private final TaskChain<T> parent;
@@ -46,16 +50,65 @@ public class SplitTaskChain<T> extends TaskChain<T> {
             for(TaskHolder<?, ?> task : tasks) {
                 futures.add(CompletableFuture.runAsync(() -> task.getTask().run(null), executor));
             }
-
+            for(int i = 0; i < futures.size(); i++) {
+                try {
+                    futures.get(i).get();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } catch (ExecutionException e) {
+                    getErrorHandler().accept(e, tasks.get(i).getTask());
+                }
+            }
         });
         return parent;
     }
 
     @Override
+    public boolean hasTaskData(String key) {
+        return parent.hasTaskData(key);
+    }
+
+    @Override
+    public <R> R getTaskData(String key) {
+        return parent.getTaskData(key);
+    }
+
+    @Override
+    public <R> R removeTaskData(String key) {
+        return parent.removeTaskData(key);
+    }
+
+    @Override
+    public <R> R setTaskData(String key, Object val) {
+        return parent.setTaskData(key, val);
+    }
+
+    @Override
+    public TaskChain<T> delay(int gameUnits) {
+        throw new TaskChainException("Cannot delay simultaneous execution, collect first!");
+    }
+
+    @Override
+    public TaskChain<T> delay(int duration, TimeUnit unit) {
+        throw new TaskChainException("Cannot delay simultaneous execution, collect first!");
+    }
+    
+    
+
+    @Override
+    void execute0() {
+        throw new TaskChainException("Cannot execute a split chain, collect it first!");
+    }
+
+    @Override
     public TaskChain add0(TaskHolder<?, ?> task) {
+        if(!task.async) {
+            throw new TaskChainException("Split chains can only run async tasks");
+        }
+        
         synchronized (this) {
             if (isExecuted()) {
-                throw new RuntimeException("TaskChain is executing");
+                throw new TaskChainException("TaskChain is executing");
             }
         }
 

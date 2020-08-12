@@ -55,8 +55,8 @@ public class TaskChainAsyncQueue implements AsyncQueue {
 
     /**
      * Call during game shutdown state
-     * @param timeout
-     * @param unit
+     * @param timeout How long to try to shutdown
+     * @param unit Time unit the timeout is in
      */
     public void shutdown(int timeout, TimeUnit unit) {
         try {
@@ -64,7 +64,8 @@ public class TaskChainAsyncQueue implements AsyncQueue {
             executor.shutdown();
             executor.awaitTermination(timeout, unit);
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            Thread.currentThread().interrupt();
+            TaskChainUtil.logError("Error shutting down async que");
         }
     }
 }

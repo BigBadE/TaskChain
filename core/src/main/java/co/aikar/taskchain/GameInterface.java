@@ -31,7 +31,7 @@ public interface GameInterface {
      * Determines if the current thread is the main thread or not.
      * @return
      */
-    boolean isMainThread();
+    boolean isAsync();
 
     /**
      * Returns the AsyncQueue instance used by this game implementation
@@ -51,7 +51,7 @@ public interface GameInterface {
      */
     default void postAsync(Runnable run) {
         getAsyncQueue().postAsync(run);
-    };
+    }
 
     /**
      * Schedule a task within the games scheduler using its own units
